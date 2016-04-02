@@ -1,7 +1,7 @@
 /*
- * Author:  Sundy 
- * TIME :   2 March,2016
- * Subject: COMP5228 ESI
+   Author:  Sundy
+   TIME :   2 March,2016
+   Subject: COMP5228 ESI
 **/
 #include "SR04.h"
 #define FORWARD   1
@@ -12,7 +12,7 @@
 
 /************step motor**********************/
 #define LEFT1_WHEEL1  7
-#define LEFT2_WHEEL1  8 
+#define LEFT2_WHEEL1  8
 #define RIGHT1_WHEEL2 12
 #define RIGHT2_WHEEL2 13
 #define MOTOR1_PWM    10
@@ -23,13 +23,20 @@
 #define SOUND1_ECHO_PIN 3
 
 /************light sensor********************/
-#define LIGHT1_AO   0
-#define LIGHT2_A1   1
+#define LIGHT1_AO   A0
+#define LIGHT2_A1   A1
 
 #define THRESHOLD 50
 #define L_RIGHT    1
 #define L_LEFT     2
 #define L_FORWARD  3
+
+// variables:
+int sensorValue = 0;      // the sensor value
+int sensorValue1 = 0;     // the sensor value
+
+int sensorMin = 0;        // minimum sensor value
+int sensorMax = 1023;     // maximum sensor value
 
 /******general function********/
 SR04 ReadSound1Dist() {
@@ -207,7 +214,7 @@ int TurnAround() {
   return dir;
 }
 
-  void FollowLight() {
+void FollowLight() {
   int dir = LightDirection();
   switch (dir) {
     case 1:
@@ -228,8 +235,7 @@ int TurnAround() {
   }
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
+void MidTerm() {
   bool NotSafe = ObsInFront();
   while (NotSafe) {
     SetMotorSpeed(90);
@@ -240,5 +246,45 @@ void loop() {
     delay(100);
   }
   FollowLight();
+}
+
+void LightFinding() {
+  sensorValue = analogRead(LIGHT1_AO);
+  sensorValue1 = analogRead(LIGHT2_A1);
+
+  sensorValue = map(sensorValue, sensorMin, sensorMax, 0, 255) + 15;
+  sensorValue1 = map(sensorValue1, sensorMin, sensorMax, 0, 255);
+  sensorValue = (sensorValue) / 2 + 100;
+  sensorValue1 = (sensorValue1) / 2 + 100;
+
+  Serial.println();
+  Serial.print("Light1:");
+  Serial.println(sensorValue1);
+  Serial.print("Light:");
+  Serial.println(sensorValue);
+
+  MotorCtl(FORWARD);
+  analogWrite(MOTOR1_PWM, 255 - sensorValue);
+  analogWrite(MOTOR2_PWM,  255 - sensorValue1);
+  delay(100);
+}
+
+
+void FinalExam() {
+  bool NotSafe = ObsInFront();
+  while (NotSafe) {
+    SetMotorSpeed(90);
+    MotorCtl(TURNRIGHT);
+    delay(100);
+    MotorCtl(STOP);
+    NotSafe = ObsInFront();
+    delay(100);
+  }
+  LightFinding();
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  FinalExam();
 }
 
