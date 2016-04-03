@@ -1,4 +1,3 @@
-
 #include "pt.h"
 static struct pt pt1, pt2;
 
@@ -24,6 +23,10 @@ static int protothread2(struct pt *pt,int time) {
   PT_END(pt);
 }
 
+void xTaskCreate(int (*xTaskName)(struct pt *,int),struct pt *ptr,int time) {  
+  (* xTaskName)(ptr,time);
+}
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
@@ -31,13 +34,9 @@ void setup() {
   PT_INIT(&pt2);
 }
 
-void xTaskCreate(int (*xTaskName)(struct pt *,int),struct pt *ptr,int time) {  
-  (* xTaskName)(ptr,time);
-}
-
 void loop() {
   // put your main code here, to run repeatedly:
-  xTaskCreate(protothread1,&pt1,1000);
+  xTaskCreate(protothread1,&pt1,10);
   xTaskCreate(protothread2,&pt2,1000);
 }
 
