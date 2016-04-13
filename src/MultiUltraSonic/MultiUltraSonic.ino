@@ -5,7 +5,7 @@
 #define BACKWARD  2
 #define TURNRIGHT 3
 #define TURNLEFT  4
-#define STOP     5
+#define STOP      5
 
 /************step motor**********************/
 #define LEFT1_WHEEL1  7
@@ -16,9 +16,19 @@
 #define MOTOR2_PWM    11
 
 /************UtraSonic sensor****************/
-#define SOUND1_TRIG_PIN 2
+//Three sound sensor shsare the same triger pin of digital pin2
+#define SOUND_TRIG_PIN 2
+//left UtraSonic Sensor
 #define SOUND1_ECHO_PIN 3
-#define DANGER  40
+//Front UtraSonic Sensor
+#define SOUND2_ECHO_PIN 5
+//Right UtraSonic Sensor
+#define SOUND3_ECHO_PIN 9
+
+#define DANGER_LONG  40
+#define DANGER_SHORT 20
+#define DANGER_MID   30
+#define DELTA        5
 
 /************light sensor********************/
 #define LIGHT1_AO   0
@@ -95,6 +105,53 @@ void MotorCtl(int direction) {
   }
 }
 
+void RunStraight() {
+  int distFront = ReadSoundDist(2);
+  int distLeft =  ReadSoundDist(1);
+  int distRight =  ReadSoundDist(3);
+
+  MotorCtl(FORWARD);
+
+  if (distFront > DANGER_SHORT) {
+    if (DANGER_SHORT < distRight && distRight < DANGER_MID) {
+      analogWrite(MOTOR1_PWM, 60);
+      analogWrite(MOTOR2_PWM, 50);
+    }
+
+    if (distRight > DANGER_MID) {
+      analogWrite(MOTOR1_PWM, 60);
+      analogWrite(MOTOR2_PWM, 40);
+    }
+
+    if (distRight < DANGER_SHORT) {
+      analogWrite(MOTOR1_PWM, 40);
+      analogWrite(MOTOR2_PWM, 60);
+    }
+  }
+  delay(800);
+}
+
+
+void RunLeft() {
+  MotorCtl(TURNLEFT);
+  SetMotorSpeed(80);
+
+  delay(400);
+}
+
+void RunRight() {
+  MotorCtl(TURNRIGHT);
+  SetMotorSpeed(60);
+
+  delay(300);
+}
+
+void RunBack() {
+  MotorCtl(BACKWARD);
+  SetMotorSpeed(60);
+  delay(400);
+}
+
 void SetMotorSpeed(int value) {
   int LeftSpeed = 0;
   int RightSpeed = 0;
@@ -114,23 +171,79 @@ int GetLightSensorValue(int SenID) {
   //  Serial.print(SenID + ":");
   //  Serial.println(SensorValue);
 
-  SensorValue = (SensorValue)/ 2 + 100;
+  SensorValue = (SensorValue) / 2 + 100;
   return SensorValue;
 }
 
-SR04 ReadSound1Dist() {
-  return SR04(SOUND1_ECHO_PIN, SOUND1_TRIG_PIN);
+SR04 ReadSound1Dist(int id) {
+  switch (id) {
+    case 1:
+      return SR04(SOUND1_ECHO_PIN, SOUND_TRIG_PIN);
+      break;
+
+    case 2:
+      return SR04(SOUND2_ECHO_PIN, SOUND_TRIG_PIN);
+      break;
+
+    case 3:
+      return SR04(SOUND3_ECHO_PIN, SOUND_TRIG_PIN);
+      break;
+  }
+}
+
+long ReadSoundDist(int id) {
+  long distance = 0;
+  switch (id) {
+    case 1:
+      return ReadSound1Dist(1).Distance();
+      break;
+
+    case 2:
+      return ReadSound1Dist(2).Distance();
+      break;
+
+    case 3:
+      return ReadSound1Dist(3).Distance();
+      break;
+  }
+}
+
+void UltraSonicTest() {
+  long distance1 = ReadSound1Dist(1).Distance();
+  long distance2 = ReadSound1Dist(2).Distance();
+  long distance3 = ReadSound1Dist(3).Distance();
+  Serial.print(distance1);  Serial.print(":");
+  Serial.print(distance2);  Serial.print(":");
+  Serial.print(distance3);  Serial.println("");
+  delay(600);
+}
+
+bool ObsOnLeft() {
+  long distLeft = ReadSoundDist(1);
+  long distRight = ReadSoundDist(3);
+  if ((distLeft + 10) < distRight)
+    return true;
+  return false;
 }
 
 bool ObsInFront() {
-  long distance = ReadSound1Dist().Distance();
+  long distance = ReadSoundDist(2);
   Serial.print(distance);
   Serial.println("cm");
-  if ((distance < DANGER) && (distance != 0))
+  if ((distance < DANGER_LONG) && (distance != 0))
     return true;
   else
     return false;
 }
+
+bool ObsOnRight() {
+  long distLeft = ReadSoundDist(1);
+  long distRight = ReadSoundDist(3);
+  if ((distRight + 10) < distLeft)
+    return true;
+  return false;
+}
+
 
 static int AvoidCollision(struct pt *pt, int time) {
   static unsigned long timestamp = 0;
@@ -141,7 +254,18 @@ static int AvoidCollision(struct pt *pt, int time) {
     bool NotSafe = ObsInFront();
     while (NotSafe) {
       SetMotorSpeed(90);
-      MotorCtl(TURNRIGHT);
+//      
+//      MotorCtl(TURNRIGHT);
+//      delay(100);
+
+      if (ObsOnLeft()) {
+        MotorCtl(TURNRIGHT);
+      }
+
+      if (ObsOnRight()) {
+        MotorCtl(TURNLEFT);
+      }
+
       delay(100);
       MotorCtl(STOP);
       NotSafe = ObsInFront();
@@ -161,9 +285,9 @@ static int SeekLight(struct pt *pt, int time) {
     Serial.println("Thread2:");
     int LeftSensor = GetLightSensorValue(LIGHT1_AO);
     int RightSensor = GetLightSensorValue(LIGHT2_A1);
-        Serial.print(LeftSensor);
-        Serial.print(":");
-        Serial.println(RightSensor);
+    Serial.print(LeftSensor);
+    Serial.print(":");
+    Serial.println(RightSensor);
 
     int LeftMotor = 255 - LeftSensor ;
     int RightMotor = 255 - RightSensor + 8;
@@ -186,7 +310,7 @@ void xTaskCreate(int (*xTaskName)(struct pt *, int), struct pt *ptr, int time) {
 
 void TaskInit() {
   PT_INIT(&pt1);
-  PT_INIT(&pt2);
+//  PT_INIT(&pt2);
 }
 
 void setup() {
@@ -197,9 +321,14 @@ void setup() {
 }
 
 void loop() {
+//  RunStraight();
+//  RunLeft();
+//  RunRight();
+//  RunBack();
+  //  RunBack();
   // put your main code here, to run repeatedly:
-  xTaskCreate(AvoidCollision, &pt1, 300);
-  xTaskCreate(SeekLight, &pt2, 500);
+    xTaskCreate(AvoidCollision, &pt1, 300);
+    xTaskCreate(SeekLight, &pt2, 500);
 }
 
 
