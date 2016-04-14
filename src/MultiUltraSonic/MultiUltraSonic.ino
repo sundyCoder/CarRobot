@@ -131,7 +131,6 @@ void RunStraight() {
   delay(800);
 }
 
-
 void RunLeft() {
   MotorCtl(TURNLEFT);
   SetMotorSpeed(80);
@@ -158,7 +157,7 @@ void SetMotorSpeed(int value) {
   LeftSpeed += value;
   RightSpeed += value;
   analogWrite(MOTOR1_PWM, LeftSpeed);
-  analogWrite(MOTOR2_PWM, RightSpeed);
+  analogWrite(MOTOR2_PWM, RightSpeed+6);
 }
 
 int GetLightSensorValue(int SenID) {
@@ -221,7 +220,9 @@ void UltraSonicTest() {
 bool ObsOnLeft() {
   long distLeft = ReadSoundDist(1);
   long distRight = ReadSoundDist(3);
-  if ((distLeft + 10) < distRight)
+  Serial.print(distLeft);Serial.print(":L:");Serial.print(distRight);
+  Serial.println();
+  if ((distLeft) <= distRight)
     return true;
   return false;
 }
@@ -239,7 +240,9 @@ bool ObsInFront() {
 bool ObsOnRight() {
   long distLeft = ReadSoundDist(1);
   long distRight = ReadSoundDist(3);
-  if ((distRight + 10) < distLeft)
+  Serial.print(distLeft);Serial.print(":R:");Serial.print(distRight);
+  Serial.println();
+  if ((distRight) <= distLeft)
     return true;
   return false;
 }
@@ -254,19 +257,20 @@ static int AvoidCollision(struct pt *pt, int time) {
     bool NotSafe = ObsInFront();
     while (NotSafe) {
       SetMotorSpeed(90);
-//      
+      
 //      MotorCtl(TURNRIGHT);
 //      delay(100);
 
       if (ObsOnLeft()) {
         MotorCtl(TURNRIGHT);
+        delay(100);
       }
 
       if (ObsOnRight()) {
         MotorCtl(TURNLEFT);
+       delay(100);
       }
 
-      delay(100);
       MotorCtl(STOP);
       NotSafe = ObsInFront();
       delay(100);
@@ -292,8 +296,8 @@ static int SeekLight(struct pt *pt, int time) {
     int LeftMotor = 255 - LeftSensor ;
     int RightMotor = 255 - RightSensor + 8;
     if ((LeftMotor <= 50) && (RightMotor <= 50)) {
-      LeftMotor += 70;
-      RightMotor += 70;
+      LeftMotor += 50;
+      RightMotor += 50;
     }
     Serial.println(LeftMotor);
     Serial.println(RightMotor);
@@ -304,13 +308,27 @@ static int SeekLight(struct pt *pt, int time) {
   PT_END(pt);
 }
 
+static int noSeekSource(struct pt *pt, int time){
+  static unsigned long timestamp = 0;
+  MotorCtl(FORWARD);
+  PT_BEGIN(pt);
+  while (1) {
+    PT_WAIT_UNTIL(pt, millis() - timestamp > time);
+    Serial.println("Thread2:");
+    analogWrite(MOTOR1_PWM, 60);
+    analogWrite(MOTOR2_PWM, 70);
+    timestamp = millis();         // take a new timestamp
+  }
+  PT_END(pt);
+}
+
 void xTaskCreate(int (*xTaskName)(struct pt *, int), struct pt *ptr, int time) {
   (* xTaskName)(ptr, time);
 }
 
 void TaskInit() {
   PT_INIT(&pt1);
-//  PT_INIT(&pt2);
+  PT_INIT(&pt2);
 }
 
 void setup() {
@@ -321,14 +339,9 @@ void setup() {
 }
 
 void loop() {
-//  RunStraight();
-//  RunLeft();
-//  RunRight();
-//  RunBack();
-  //  RunBack();
   // put your main code here, to run repeatedly:
     xTaskCreate(AvoidCollision, &pt1, 300);
-    xTaskCreate(SeekLight, &pt2, 500);
+    xTaskCreate(SeekLight,&pt2, 100);;
 }
 
 

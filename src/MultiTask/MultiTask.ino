@@ -17,7 +17,7 @@
 
 /************UtraSonic sensor****************/
 #define SOUND1_TRIG_PIN 2
-#define SOUND1_ECHO_PIN 3
+#define SOUND1_ECHO_PIN 5
 #define DANGER  40
 
 /************light sensor********************/
@@ -168,13 +168,27 @@ static int SeekLight(struct pt *pt, int time) {
     int LeftMotor = 255 - LeftSensor ;
     int RightMotor = 255 - RightSensor + 8;
     if ((LeftMotor <= 50) && (RightMotor <= 50)) {
-      LeftMotor += 70;
-      RightMotor += 70;
+      LeftMotor += 50;
+      RightMotor += 50;
     }
     Serial.println(LeftMotor);
     Serial.println(RightMotor);
     analogWrite(MOTOR1_PWM, LeftMotor);
     analogWrite(MOTOR2_PWM, RightMotor);
+    timestamp = millis(); // take a new timestamp
+  }
+  PT_END(pt);
+}
+
+static int noSeekSource(struct pt *pt, int time){
+  static unsigned long timestamp = 0;
+  MotorCtl(FORWARD);
+  PT_BEGIN(pt);
+  while (1) {
+    PT_WAIT_UNTIL(pt, millis() - timestamp > time);
+    Serial.println("Thread2:");
+    analogWrite(MOTOR1_PWM, 80);
+    analogWrite(MOTOR2_PWM, 80);
     timestamp = millis(); // take a new timestamp
   }
   PT_END(pt);
@@ -199,7 +213,7 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   xTaskCreate(AvoidCollision, &pt1, 300);
-  xTaskCreate(SeekLight, &pt2, 500);
+  xTaskCreate(noSeekSource, &pt2, 500);
 }
 
 
