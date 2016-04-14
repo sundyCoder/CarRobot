@@ -157,7 +157,7 @@ void SetMotorSpeed(int value) {
   LeftSpeed += value;
   RightSpeed += value;
   analogWrite(MOTOR1_PWM, LeftSpeed);
-  analogWrite(MOTOR2_PWM, RightSpeed+6);
+  analogWrite(MOTOR2_PWM, RightSpeed + 4);
 }
 
 int GetLightSensorValue(int SenID) {
@@ -170,7 +170,7 @@ int GetLightSensorValue(int SenID) {
   //  Serial.print(SenID + ":");
   //  Serial.println(SensorValue);
 
-  SensorValue = (SensorValue) / 2 + 100;
+  SensorValue = (SensorValue) / 2 + 120;
   return SensorValue;
 }
 
@@ -256,14 +256,14 @@ static int AvoidCollision(struct pt *pt, int time) {
     Serial.println("Thread1......");
     bool NotSafe = ObsInFront();
     while (NotSafe) {
-      SetMotorSpeed(90);
+      SetMotorSpeed(100);
       
 //      MotorCtl(TURNRIGHT);
 //      delay(100);
 
       if (ObsOnLeft()) {
         MotorCtl(TURNRIGHT);
-        delay(100);
+        delay(130);
       }
 
       if (ObsOnRight()) {
@@ -299,7 +299,9 @@ static int SeekLight(struct pt *pt, int time) {
       LeftMotor += 50;
       RightMotor += 50;
     }
-    Serial.println(LeftMotor);
+    
+    Serial.print(LeftMotor);
+    Serial.print(":Ligth:");
     Serial.println(RightMotor);
     analogWrite(MOTOR1_PWM, LeftMotor);
     analogWrite(MOTOR2_PWM, RightMotor);
@@ -315,8 +317,8 @@ static int noSeekSource(struct pt *pt, int time){
   while (1) {
     PT_WAIT_UNTIL(pt, millis() - timestamp > time);
     Serial.println("Thread2:");
-    analogWrite(MOTOR1_PWM, 60);
-    analogWrite(MOTOR2_PWM, 70);
+    analogWrite(MOTOR1_PWM, 70);
+    analogWrite(MOTOR2_PWM, 80);
     timestamp = millis();         // take a new timestamp
   }
   PT_END(pt);
@@ -336,12 +338,32 @@ void setup() {
   UartInit();
   MotorInit();
   TaskInit();
+  analogWrite(MOTOR1_PWM, 60);
+  analogWrite(MOTOR2_PWM, 70);
 }
+
+void demo1(){
+    xTaskCreate(AvoidCollision, &pt1, 300);
+    xTaskCreate(noSeekSource,&pt2, 200);;
+  }
+
+void demo2(){
+//    xTaskCreate(AvoidCollision, &pt1, 300);
+    xTaskCreate(SeekLight,&pt2, 200);;
+  }  
+
+  
+void demo3(){
+    xTaskCreate(AvoidCollision, &pt1, 300);
+    xTaskCreate(SeekLight,&pt2, 200);;
+  }  
 
 void loop() {
   // put your main code here, to run repeatedly:
-    xTaskCreate(AvoidCollision, &pt1, 300);
-    xTaskCreate(SeekLight,&pt2, 100);;
+//    xTaskCreate(AvoidCollision, &pt1, 300);
+//    xTaskCreate(noSeekSource,&pt2, 200);;
+//  demo1();
+//  demo2();
+  demo3();
 }
-
 
